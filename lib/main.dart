@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'screens/profile_screen.dart';
+import 'providers/app_provider.dart';
+import 'screens/home_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const AppProviderWrapper(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -13,12 +14,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Profil Mahasiswa',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: const ProfileScreen(),
+      title: 'Responsi Flutter',
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      home: const HomeScreen(),
     );
   }
 }
