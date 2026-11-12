@@ -11,6 +11,12 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+# Environment
+.env
+
+# Flutter
+build/
+.dart_tool/
 
 # IntelliJ related
 *.iml
