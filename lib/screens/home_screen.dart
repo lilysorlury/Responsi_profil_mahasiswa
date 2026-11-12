@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../providers/app_provider.dart';
 import 'profile_screen.dart';
 import 'note_form_screen.dart';
+import 'api_users_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -78,6 +79,26 @@ class HomeScreen extends StatelessWidget {
                         );
                       },
                     ),
+            ),
+
+            const SizedBox(height: 10),
+
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ApiUsersScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.cloud_download),
+              label: const Text('Data Pengguna API'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.all(15),
+              ),
             ),
 
             const SizedBox(height: 10),
