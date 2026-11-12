@@ -2,6 +2,18 @@
 
 A new Flutter project.
 
+# Responsi Profil Mahasiswa
+
+Aplikasi Flutter untuk menampilkan profil dan catatan mahasiswa.
+
+## Teknologi
+- Flutter
+- Dart
+
+## Fitur
+- Profil Mahasiswa
+- Catatan Mahasiswa
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
