@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/note.dart';
 import '../providers/app_provider.dart';
-import '../utils/validators.dart';
 
 class NoteFormScreen extends StatefulWidget {
   const NoteFormScreen({super.key});
@@ -13,9 +12,11 @@ class NoteFormScreen extends StatefulWidget {
 
 class _NoteFormScreenState extends State<NoteFormScreen> {
   final _formKey = GlobalKey<FormState>();
-
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
+
+  bool _isSaving = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -24,45 +25,43 @@ class _NoteFormScreenState extends State<NoteFormScreen> {
     super.dispose();
   }
 
-  void _saveNote() {
-    // Bersihkan input sebelum disimpan.
-    _titleController.text = Validators.sanitize(_titleController.text).trim();
+  Future<void> _saveNote() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    _contentController.text = Validators.sanitize(_contentController.text)
-        .trim();
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
 
-    // Validasi ulang setelah proses sanitasi.
-    if (!_formKey.currentState!.validate()) {
-      return;
+    try {
+      final provider = AppProvider.of(context);
+
+      final note = Note(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: _titleController.text.trim(),
+        content: _contentController.text.trim(),
+        createdAt: DateTime.now(),
+      );
+
+      await provider.addNote(note, _contentController.text.trim());
+
+      if (!mounted) return;
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = 'Gagal menyimpan catatan. Silakan coba lagi.';
+        _isSaving = false;
+      });
     }
-
-    final provider = AppProvider.of(context);
-
-    final note = Note(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: _titleController.text,
-      content: _contentController.text,
-      createdAt: DateTime.now(),
-    );
-
-    // Hanya menambahkan catatan.
-    provider.addNote(note);
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Catatan berhasil disimpan!')));
-
-    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tambah Catatan'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Tambah Catatan')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -71,49 +70,64 @@ class _NoteFormScreenState extends State<NoteFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Form Catatan Mahasiswa',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                'Buat Catatan Baru',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
 
               TextFormField(
                 controller: _titleController,
-                maxLength: 50,
                 decoration: const InputDecoration(
                   labelText: 'Judul Catatan',
-                  hintText: 'Masukkan judul catatan',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.title),
+                  border: OutlineInputBorder(),
                 ),
-                validator: Validators.validateTitle,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Judul catatan wajib diisi';
+                  }
+                  return null;
+                },
               ),
 
               const SizedBox(height: 16),
 
               TextFormField(
                 controller: _contentController,
-                maxLength: 1000,
-                maxLines: 6,
+                maxLines: 7,
                 decoration: const InputDecoration(
                   labelText: 'Isi Catatan',
-                  hintText: 'Masukkan isi catatan minimal 10 karakter',
-                  border: OutlineInputBorder(),
                   alignLabelWithHint: true,
-                  prefixIcon: Icon(Icons.notes),
+                  prefixIcon: Icon(Icons.edit_note),
+                  border: OutlineInputBorder(),
                 ),
-                validator: Validators.validateContent,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Isi catatan wajib diisi';
+                  }
+                  return null;
+                },
               ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              ],
 
               const SizedBox(height: 24),
 
               ElevatedButton.icon(
-                onPressed: _saveNote,
-                icon: const Icon(Icons.save),
-                label: const Text('Simpan Catatan'),
+                onPressed: _isSaving ? null : _saveNote,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isSaving ? 'Menyimpan...' : 'Simpan Catatan'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                 ),
               ),
             ],

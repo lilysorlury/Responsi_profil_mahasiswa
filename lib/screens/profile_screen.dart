@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../providers/app_provider.dart';
 import '../models/student.dart';
 import '../widgets/profile_card.dart';
 
@@ -11,99 +12,149 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  Student student = const Student(
-    name: 'Nama Mahasiswa',
-    nim: '25XXXXXXXX',
-    programStudi: 'S1 Informatika',
-    email: 'email@contoh.com',
-  );
+  final _formKey = GlobalKey<FormState>();
 
-  void editProfile() {
-    final nameController = TextEditingController(text: student.name);
-    final nimController = TextEditingController(text: student.nim);
-    final programController = TextEditingController(text: student.programStudi);
-    final emailController = TextEditingController(text: student.email);
+  late TextEditingController nameController;
+  late TextEditingController nimController;
+  late TextEditingController programController;
+  late TextEditingController emailController;
 
-    showDialog(
+  @override
+  void initState() {
+    super.initState();
+
+    nameController = TextEditingController();
+    nimController = TextEditingController();
+    programController = TextEditingController();
+    emailController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    nimController.dispose();
+    programController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> editProfile() async {
+    final provider = AppProvider.of(context);
+    final student = provider.student;
+
+    nameController.text = student.name;
+    nimController.text = student.nim;
+    programController.text = student.programStudi;
+    emailController.text = student.email;
+
+    final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Edit Profil'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nama'),
-                ),
-                TextField(
-                  controller: nimController,
-                  decoration: const InputDecoration(labelText: 'NIM'),
-                ),
-                TextField(
-                  controller: programController,
-                  decoration: const InputDecoration(labelText: 'Program Studi'),
-                ),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-              ],
+          content: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Nama'),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Nama wajib diisi';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: nimController,
+                    decoration: const InputDecoration(labelText: 'NIM'),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'NIM wajib diisi';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: programController,
+                    decoration: const InputDecoration(
+                      labelText: 'Program Studi',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Program studi wajib diisi';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (value) {
+                      if (value == null || !value.contains('@')) {
+                        return 'Email tidak valid';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Batal'),
             ),
             ElevatedButton(
               onPressed: () {
-                if (nameController.text.trim().isEmpty ||
-                    nimController.text.trim().isEmpty ||
-                    programController.text.trim().isEmpty ||
-                    emailController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Semua data harus diisi!')),
-                  );
-                  return;
+                if (_formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
                 }
-
-                setState(() {
-                  student = student.copyWith(
-                    name: nameController.text.trim(),
-                    nim: nimController.text.trim(),
-                    programStudi: programController.text.trim(),
-                    email: emailController.text.trim(),
-                  );
-                });
-
-                Navigator.pop(dialogContext);
               },
               child: const Text('Simpan'),
             ),
           ],
         );
       },
-    ).then((_) {
-      nameController.dispose();
-      nimController.dispose();
-      programController.dispose();
-      emailController.dispose();
-    });
+    );
+
+    if (result == true && mounted) {
+      try {
+        await provider.updateStudent(
+          Student(
+            name: nameController.text.trim(),
+            nim: nimController.text.trim(),
+            programStudi: programController.text.trim(),
+            email: emailController.text.trim(),
+          ),
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil berhasil diperbarui')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memperbarui profil')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final student = AppProvider.of(context).student;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text('Profil Mahasiswa'),
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Profil Mahasiswa')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -117,12 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: const Icon(Icons.edit),
                 label: const Text('Edit Profil'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
             ),

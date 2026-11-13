@@ -1,127 +1,259 @@
 import 'package:flutter/material.dart';
 
 import '../providers/app_provider.dart';
-import 'profile_screen.dart';
-import 'note_form_screen.dart';
-import 'api_users_screen.dart';
+import '../screens/profile_screen.dart';
+import '../screens/note_form_screen.dart';
+import '../widgets/note_card.dart';
+import '../widgets/empty_state.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  Future<void> _openNoteForm(BuildContext context) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const NoteFormScreen()),
+    );
+
+    if (result == true && context.mounted) {
+      await AppProvider.of(context).loadNotes();
+    }
+  }
+
+  Future<void> _openProfile(BuildContext context) async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    String id,
+    String title,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Hapus Catatan'),
+          content: Text('Apakah kamu yakin ingin menghapus "$title"?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await AppProvider.of(context).deleteNote(id);
+
+        if (!context.mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Catatan berhasil dihapus')),
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menghapus catatan')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = AppProvider.of(context);
+    final student = provider.student;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Responsi Flutter'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        title: const Text('Catatan Mahasiswa'),
+        actions: [
+          IconButton(
+            tooltip: 'Profil Mahasiswa',
+            icon: const Icon(Icons.person),
+            onPressed: () => _openProfile(context),
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Colors.blue,
-                  child: Icon(Icons.person, color: Colors.white),
-                ),
-                title: Text(provider.student.name),
-                subtitle: Text(provider.student.nim),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfileScreen(),
-                    ),
-                  );
-                },
-              ),
+
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Profil singkat mahasiswa
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(16),
             ),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, size: 32, color: Colors.blue),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        student.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'NIM: ${student.nim}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      Text(
+                        student.programStudi,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-            const SizedBox(height: 20),
-
-            const Text(
-              'Catatan Saya',
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Daftar Catatan',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
+          ),
 
-            const SizedBox(height: 10),
+          const SizedBox(height: 10),
 
-            Expanded(
-              child: provider.notes.isEmpty
-                  ? const Center(child: Text('Belum ada catatan'))
-                  : ListView.builder(
-                      itemCount: provider.notes.length,
-                      itemBuilder: (context, index) {
-                        final note = provider.notes[index];
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                if (provider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                        return Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.note, color: Colors.blue),
-                            title: Text(note.title),
-                            subtitle: Text(
-                              note.content,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                provider.deleteNote(note.id);
-                              },
-                            ),
+                if (provider.error != null) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 55,
+                            color: Colors.red,
                           ),
-                        );
-                      },
+                          const SizedBox(height: 12),
+                          Text(provider.error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              AppProvider.of(context).loadNotes();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Coba Lagi'),
+                          ),
+                        ],
+                      ),
                     ),
-            ),
+                  );
+                }
 
-            const SizedBox(height: 10),
+                if (provider.notes.isEmpty) {
+                  return EmptyState(onAddNote: () => _openNoteForm(context));
+                }
 
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ApiUsersScreen(),
-                  ),
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 90),
+                  itemCount: provider.notes.length,
+                  itemBuilder: (context, index) {
+                    final note = provider.notes[index];
+
+                    return NoteCard(
+                      note: note,
+                      onTap: () async {
+                        try {
+                          final content = await AppProvider.of(context)
+                              .getNoteContent(note.id);
+
+                          if (!context.mounted) return;
+
+                          showDialog(
+                            context: context,
+                            builder: (dialogContext) {
+                              return AlertDialog(
+                                title: Text(note.title),
+                                content: SingleChildScrollView(
+                                  child: Text(
+                                    content ?? 'Isi catatan tidak ditemukan.',
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(dialogContext);
+                                    },
+                                    child: const Text('Tutup'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Gagal membuka catatan'),
+                            ),
+                          );
+                        }
+                      },
+                      onDelete: () =>
+                          _confirmDelete(context, note.id, note.title),
+                    );
+                  },
                 );
               },
-              icon: const Icon(Icons.cloud_download),
-              label: const Text('Data Pengguna API'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(15),
-              ),
             ),
+          ),
+        ],
+      ),
 
-            const SizedBox(height: 10),
-
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const NoteFormScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Tambah Catatan'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(15),
-              ),
-            ),
-          ],
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openNoteForm(context),
+        tooltip: 'Tambah Catatan',
+        child: const Icon(Icons.add),
       ),
     );
   }
